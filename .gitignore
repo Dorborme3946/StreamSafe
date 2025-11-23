@@ -3,3 +3,7 @@
 /venv/lib/python3.11/site-packages/cv2/.dylibs
 venv/lib/python3.11/site-packages/fontTools/feaLib/variableScalar.py
 /venv
+*.py
+*.dylib
+*.txt
+/hackathon-env
