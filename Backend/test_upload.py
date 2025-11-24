@@ -1,4 +1,4 @@
-import requests
+'''import requests
 import base64
 import cv2
 import numpy as np
@@ -18,3 +18,4 @@ img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 cv2.imshow("Processed Frame", img)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+'''

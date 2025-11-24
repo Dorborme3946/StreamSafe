@@ -1,4 +1,4 @@
-import requests
+'''import requests
 import base64
 
 # URL of your FastAPI backend
@@ -27,4 +27,4 @@ if response.status_code == 200:
     
     print(f"Blurred image saved to {output_path}")
 else:
-    print("Error:", response.status_code, response.text)
+    print("Error:", response.status_code, response.text)'''

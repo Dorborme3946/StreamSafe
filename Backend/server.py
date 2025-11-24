@@ -3,12 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 import cv2
 import numpy as np
 import base64
-from ultralytics import YOLO
+from roboflow import Roboflow
 
-# Initialize FastAPI
+# --------------------------- Roboflow setup ---------------------------
+rf = Roboflow(api_key="l9cfcKbJNSCFHSuaFscE")  # replace with your API key
+project = rf.workspace("streamsafe").project("find-credit-cards")
+model = project.version(1).model  # use the correct version
+
+# --------------------------- FastAPI setup ---------------------------
 app = FastAPI()
 
-# CORS (optional, for frontend requests)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,27 +20,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load YOLO model once at startup
-model = YOLO("yolov8n.pt")  # or yolov12n.pt if you have it
-
+# --------------------------- Endpoint ---------------------------
 @app.post("/process-frame")
 async def process_frame(file: UploadFile = File(...)):
-    # Read file bytes
+    # Read image from upload
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    # Run YOLO detection
-    results = model(frame)
+    # Save temporary file to send to Roboflow
+    temp_path = "temp.jpg"
+    cv2.imwrite(temp_path, frame)
 
-    # Blur detected objects
-    for result in results:
-        boxes = result.boxes.xyxy.cpu().numpy()  # x1, y1, x2, y2
-        for box in boxes:
-            x1, y1, x2, y2 = map(int, box)
-            roi = frame[y1:y2, x1:x2]
-            roi = cv2.GaussianBlur(roi, (51, 51), 30)
-            frame[y1:y2, x1:x2] = roi
+    # Send frame to Roboflow model
+    result = model.predict(temp_path, confidence=40, overlap=30).json()  # adjust confidence if needed
+
+    # Blur detected credit cards
+    for detection in result["predictions"]:
+        x, y, w, h = detection["x"], detection["y"], detection["width"], detection["height"]
+        x1, y1 = int(x - w / 2), int(y - h / 2)
+        x2, y2 = int(x + w / 2), int(y + h / 2)
+
+        roi = frame[y1:y2, x1:x2]
+        roi = cv2.GaussianBlur(roi, (51, 51), 30)
+        frame[y1:y2, x1:x2] = roi
 
     # Encode image to base64
     _, buffer = cv2.imencode(".jpg", frame)
@@ -44,10 +51,11 @@ async def process_frame(file: UploadFile = File(...)):
 
     return {
         "frame": img_b64,
-        "size": {"width": frame.shape[1], "height": frame.shape[0]}
+        "size": {"width": frame.shape[1], "height": frame.shape[0]},
+        "detections": result["predictions"]
     }
 
-# ✅ Root route
+# --------------------------- Root endpoint ---------------------------
 @app.get("/")
 async def root():
-    return {"message": "Backend is running!"}
+    return {"message": "Backend running!"}
